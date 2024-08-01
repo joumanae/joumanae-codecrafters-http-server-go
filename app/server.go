@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -16,13 +17,21 @@ func main() {
 		fmt.Println("Failed to bind to port 4221")
 		os.Exit(1)
 	}
+	// In this stage, your server will extract the URL path from an HTTP request, and respond with either a 200 or 404,
+	//depending on the path.
 
-	c, err := l.Accept()
+	conn, err := l.Accept()
 	if err != nil {
 		fmt.Println("Error accepting connection: ", err.Error())
 		os.Exit(1)
 	}
 
-	c.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	req := make([]byte, 1024)
+	conn.Read(req)
 
+	if !strings.Contains(string(req), "GET / HTTP/1.1") {
+		conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		conn.Close()
+	}
+	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 }
