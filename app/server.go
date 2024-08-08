@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func main() {
@@ -40,7 +41,7 @@ func main() {
 		response = "HTTP/1.1 200 OK\r\n\r\n"
 	} else if path == "/user-agent" {
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(request.UserAgent()), request.UserAgent())
-	} else if path[0:6] == "/echo/" {
+	} else if strings.Contains(path, "/echo/") {
 		echo := path[6:]
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
 	} else {
@@ -48,4 +49,5 @@ func main() {
 	}
 
 	conn.Write([]byte(response))
+	conn.Close()
 }
