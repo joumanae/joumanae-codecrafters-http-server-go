@@ -18,7 +18,6 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Error reading request:", err)
 		return
 	}
-
 	// Write the request to stdout (for debugging)
 	request.Write(os.Stdout)
 
@@ -28,12 +27,25 @@ func handleConnection(conn net.Conn) {
 	switch {
 	case path == "/":
 		response = "HTTP/1.1 200 OK\r\n\r\n"
+
 	case path == "/user-agent":
 		userAgent := request.UserAgent()
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
+
 	case strings.HasPrefix(path, "/echo/"):
 		echo := strings.TrimPrefix(path, "/echo/")
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+
+	case strings.HasPrefix(path, "/files/"):
+		dir := os.Args[2]
+		fileName := strings.TrimPrefix(path, "/files/")
+		file, err := os.ReadFile(dir + fileName)
+		if err != nil || len(file) == 0 {
+			response = "HTTP/1.1 404 Not Found\r\n\r\n"
+			break
+		}
+		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)
+
 	default:
 		response = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
@@ -43,10 +55,8 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Error writing response:", err)
 	}
 }
-
 func main() {
 	fmt.Println("Logs from your program will appear here!")
-
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -54,7 +64,6 @@ func main() {
 	}
 	defer l.Close()
 	for {
-
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection:", err)
