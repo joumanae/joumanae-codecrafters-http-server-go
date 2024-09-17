@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -18,8 +19,6 @@ func handleConnection(conn net.Conn) {
 		fmt.Println("Error reading request:", err)
 		return
 	}
-	// Write the request to stdout (for debugging)
-	request.Write(os.Stdout)
 
 	var response string
 	path := request.URL.Path
@@ -37,14 +36,37 @@ func handleConnection(conn net.Conn) {
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
 
 	case strings.HasPrefix(path, "/files/"):
-		dir := os.Args[2]
-		fileName := strings.TrimPrefix(path, "/files/")
-		file, err := os.ReadFile(dir + fileName)
-		if err != nil || len(file) == 0 {
-			response = "HTTP/1.1 404 Not Found\r\n\r\n"
-			break
+		if request.Method == "GET" {
+			dir := os.Args[2]
+			fileName := strings.TrimPrefix(path, "/files/")
+			file, err := os.ReadFile(dir + fileName)
+			if err != nil || len(file) == 0 {
+				response = "HTTP/1.1 404 Not Found\r\n\r\n"
+				break
+			}
+			response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)
 		}
-		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(file), file)
+		if request.Method == "POST" {
+			// Read the body of the POST request
+			dir := os.Args[2]
+			fileName := strings.TrimPrefix(path, "/files/")
+			body, err := io.ReadAll(io.LimitReader(request.Body, 100))
+			if err != nil {
+				fmt.Println("Error reading body:", err)
+				response = "HTTP/1.1 400 Bad Request\r\n\r\nFailed to read request body"
+				break
+			}
+
+			// Write the body content to a file
+			err = os.WriteFile(dir+fileName, body, 0644)
+			if err != nil {
+				fmt.Println("Error writing file:", err)
+				response = "HTTP/1.1 500 Internal Server Error\r\n\r\nFailed to write file"
+				break
+			}
+			// Success response
+			response = "HTTP/1.1 201 Created\r\n\r\n"
+		}
 
 	default:
 		response = "HTTP/1.1 404 Not Found\r\n\r\n"
@@ -53,8 +75,11 @@ func handleConnection(conn net.Conn) {
 	_, err = conn.Write([]byte(response))
 	if err != nil {
 		fmt.Println("Error writing response:", err)
+		return
 	}
+
 }
+
 func main() {
 	fmt.Println("Logs from your program will appear here!")
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
