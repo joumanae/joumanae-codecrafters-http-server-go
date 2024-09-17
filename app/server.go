@@ -34,6 +34,12 @@ func handleConnection(conn net.Conn) {
 	case strings.HasPrefix(path, "/echo/"):
 		echo := strings.TrimPrefix(path, "/echo/")
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+		if request.Method == "GET" && request.Header.Get("Accept-Encoding") == "gzip" {
+			response = "HTTP/1.1 200 OK\r\nContent-Encoding: gzip\r\n\r\n"
+		}
+		if request.Method == "GET" && request.Header.Get("Accept-Encoding") == "invalid-encoding" {
+			response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(echo), echo)
+		}
 
 	case strings.HasPrefix(path, "/files/"):
 		if request.Method == "GET" {
